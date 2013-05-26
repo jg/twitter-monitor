@@ -12,8 +12,19 @@ class OAuthSuite extends FunSpec with ShouldMatchers {
     describe("fromJSON") {
       val tweetOpt = Tweet.fromJSON(tweetJSON)
       for (tweet <- tweetOpt) {
-        tweet.id should equal("335980230080622592")
+        tweet.id should equal(BigInt("335980230080622592"))
         tweet.text should equal("""RT @cdixon: Autodesk buying Tinkercad and making it free is a win for users http://t.co/ikgW8VPZqQ""")
+      }
+    }
+
+  }
+  describe("User") {
+    val userJSON = """{"id":14344469,"id_str":"14344469","name":"Peter Skomoroch","screen_name":"peteskomoroch","location":"Silicon Valley","description":"My mission is to create intelligent systems that help people make better decisions. Principal Data Scientist @LinkedIn. Machine Learning, Hadoop, Big Data.","url":"http:\/\/t.co\/coIHrIxtTb","entities":{"url":{"urls":[{"url":"http:\/\/t.co\/coIHrIxtTb","expanded_url":"http:\/\/datawrangling.com","display_url":"datawrangling.com","indices":[0,22]}]},"description":{"urls":[]}},"protected":false,"followers_count":12321,"friends_count":902,"listed_count":858,"created_at":"Wed Apr 09 19:05:55 +0000 2008","favourites_count":1694,"utc_offset":-28800,"time_zone":"Pacific Time (US & Canada)","geo_enabled":true,"verified":false,"statuses_count":9316,"lang":"en","contributors_enabled":false,"is_translator":false,"profile_background_color":"1A1B1F","profile_background_image_url":"http:\/\/a0.twimg.com\/profile_background_images\/4230724\/Quantumfoam.jpg","profile_background_image_url_https":"https:\/\/si0.twimg.com\/profile_background_images\/4230724\/Quantumfoam.jpg","profile_background_tile":true,"profile_image_url":"http:\/\/a0.twimg.com\/profile_images\/3276454686\/8f8493dfc040e56ef7ff8f59f9474774_normal.jpeg","profile_image_url_https":"https:\/\/si0.twimg.com\/profile_images\/3276454686\/8f8493dfc040e56ef7ff8f59f9474774_normal.jpeg","profile_banner_url":"https:\/\/pbs.twimg.com\/profile_banners\/14344469\/1357265856","profile_link_color":"2FC2EF","profile_sidebar_border_color":"181A1E","profile_sidebar_fill_color":"252429","profile_text_color":"666666","profile_use_background_image":true,"default_profile":false,"default_profile_image":false,"following":true,"follow_request_sent":null,"notifications":null}"""
+    describe("fromJSON") {
+      val userOpt = User.fromJSON(userJSON)
+      for (user <- userOpt) {
+        user.name should equal("peteskomoroch")
+        user.avatarUrl should equal("http://a0.twimg.com/profile_images/3276454686/8f8493dfc040e56ef7ff8f59f9474774_normal.jpeg")
       }
     }
   }

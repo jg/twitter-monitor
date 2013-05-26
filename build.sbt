@@ -12,4 +12,8 @@ libraryDependencies += "com.github.scala-incubator.io" %% "scala-io-core" % "0.4
 
 libraryDependencies += "com.github.scala-incubator.io" %% "scala-io-file" % "0.4.2"
 
+libraryDependencies += "com.typesafe.slick" %% "slick" % "1.0.0"
+
+libraryDependencies += "org.slf4j" % "slf4j-nop" % "1.6.4"
+
 (sourceDirectories in Test) := Seq(new File("test"))

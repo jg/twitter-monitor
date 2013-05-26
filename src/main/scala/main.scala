@@ -1,26 +1,52 @@
 package org.jg.twittermonitor
 
-import org.json.simple
 import org.json.simple._
 import scala.collection.JavaConversions._
 import scala.collection.breakOut
-import scala.collection.IndexedSeq
 
 object Tweet {
   def fromJSON(json: String): Option[Tweet] = JSONValue.parse(json) match {
     case obj: JSONObject => {
-      val keys = List("id", "text")
-      if (keys.forall(obj.containsKey(_))) {
-        val id = obj.get("id_str").asInstanceOf[String]
-        val text = obj.get("text").asInstanceOf[String]
-        Some(new Tweet(id, text))
+      val keys = List("id_str", "text", "user")
+      if (keys.forall(obj.containsKey(_)) &&
+          User.fromJSON(obj.get("user").asInstanceOf[JSONObject].toJSONString()).isDefined) {
+        val id = BigInt(obj.get(keys(0)).asInstanceOf[String])
+        val text = obj.get(keys(1)).asInstanceOf[String]
+        val user = User.fromJSON(obj.get("user").asInstanceOf[JSONObject].toJSONString()).get
+        Some(new Tweet(id, text, user))
       } else None
     }
     case _ => None
   }
 }
 
-class Tweet(val id: String, val text: String)
+object User {
+  def fromJSON(json: String): Option[User] = JSONValue.parse(json) match {
+    case obj: JSONObject => {
+      val keys = List("screen_name", "profile_image_url")
+      if (keys.forall(obj.containsKey(_))) {
+        val name = obj.get(keys(0)).asInstanceOf[String]
+        val avatarUrl = obj.get(keys(1)).asInstanceOf[String]
+        Some(new User(name, avatarUrl))
+      } else None
+    }
+    case _ => None
+  }
+}
+
+
+case class User(name: String, avatarUrl: String)
+case class Tweet(id: BigInt, text: String, user: User)
+
+case class TweetSet(tweets: Seq[Tweet]) {
+  def foreach(f: (Tweet) => Unit) = tweets.foreach(f)
+/*
+  val minId: BigInt = tweets.minBy((tweet) => tweet.id).id
+  val maxId: BigInt = tweets.maxBy((tweet) => tweet.id).id
+  val size = tweets.size
+  val received_at = System.currentTimeMillis/1000
+  */
+}
 
 // TODO: handle failure (tweets parseErrors)
 class TwitterClient(oauthConsumerKey: String,
@@ -31,8 +57,8 @@ class TwitterClient(oauthConsumerKey: String,
 
   val homeTimelineUrl = "https://api.twitter.com/1.1/statuses/home_timeline.json"
 
-  def homeTimeline(headers: Map[String, String]): Seq[Tweet] =
-    homeTimelineRaw(headers).flatMap(Tweet.fromJSON(_))
+  def homeTimeline(headers: Map[String, String]): TweetSet =
+    TweetSet(homeTimelineRaw(headers).flatMap(Tweet.fromJSON(_)))
 
   // Returns list of tweets in JSON
   private def homeTimelineRaw(headers: Map[String, String]): Seq[String] = {
@@ -56,7 +82,39 @@ class TwitterClient(oauthConsumerKey: String,
     oauthRequest("GET", url, headers)
 
 }
+
+/*
+create table if not exists tweets(
+  id serial,
+  twitter_id bigint not null,
+  text string not null,
+  user_screen_name string,
+  user_avatar string,
+  created_at timestamp with time zone not null default current_timestamp,
+  updated_at timestamp with time zone not null default current_timestamp
+  unique(twitter_id)
+)
+*/
+
+object DB {
+  import scala.slick.driver.PostgresDriver._
+  import scala.slick.session.Database
+  import Database.threadLocalSession
+  import scala.slick.jdbc.{GetResult, StaticQuery => Q}
+  import Q.interpolation
+
+    def insert(t: Tweet) = t match {case Tweet(id, text, User(name, avatar_url)) => {
+      Database.forURL("jdbc:postgresql:twitter_monitor", driver = "org.postgresql.Driver", user = "twitter_monitor") withSession {
+        (Q.u + "insert into tweets (twitter_id, text, user_screen_name, user_avatar) values" + 
+          "($$" + id.toString + "$$,$$" + text + "$$,$$" + name + "$$,$$" + avatar_url + "$$)").execute
+      }
+    }}
+
+    def maxTweetId: BigInt = Database.forURL("jdbc:postgresql:twitter_monitor", driver = "org.postgresql.Driver", user = "twitter_monitor") withSession {
+      BigInt(Q.query[Unit, (String)]("select max(twitter_id) from tweets").first())
+    }
 }
+
 object Main {
   import scalax.io._
 
@@ -69,6 +127,12 @@ object Main {
     apiTokens.get("oauthTokenSecret"))
 
   def main(args: Array[String]) = {
+    val maxId = DB.maxTweetId
+    val headers = Map("count" -> "100",
+                      "since_id" -> maxId.toString,
+                      "exclude_replies" -> "true",
+                      "include_entities" -> "false")
+    val tweets = client.homeTimeline(headers)
+    tweets.foreach(DB.insert(_))
   }
-
 }
